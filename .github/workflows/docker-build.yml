@@ -1,6 +1,6 @@
 name: Docker Build and Push
 
-on:
+on: 
   push:
     branches: [ main, master ]
   pull_request:
@@ -23,16 +23,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and Push Frontend
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
-          push: true
-          tags: |
-            eyemusician/dso101-frontend:latest
-            eyemusician/dso101-frontend:${{ github.sha }}
-
       - name: Build and Push Backend
         uses: docker/build-push-action@v5
         with:
@@ -40,5 +30,40 @@ jobs:
           file: ./backend/Dockerfile
           push: true
           tags: |
-            eyemusician/dso101-backend:latest
-            eyemusician/dso101-backend:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/app-backend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/app-backend:${{ github.sha }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and Push Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/app-frontend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/app-frontend:${{ github.sha }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Optional: Build and Push Database (if you have a custom DB image)
+      - name: Build and Push Database
+        uses: docker/build-push-action@v5
+        with:
+          context: ./database
+          file: ./database/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/app-database:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/app-database:${{ github.sha }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+        # Only run this step if database directory exists
+        if: hashFiles('./database/Dockerfile') != ''
+
+      - name: Image digest
+        run: echo "Images pushed successfully with SHA ${{ github.sha }}"
