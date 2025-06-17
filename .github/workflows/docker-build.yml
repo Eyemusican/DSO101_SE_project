@@ -3,8 +3,6 @@ name: Docker Build and Push
 on: 
   push:
     branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
 
 jobs:
   build-and-push:
@@ -13,9 +11,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -27,29 +22,36 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./backend
-          file: ./backend/Dockerfile
+          file: ./backend/Dockerfile.prod
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/app-backend:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/app-backend:${{ github.sha }}
-          platforms: linux/amd64,linux/arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Build and Push Frontend
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
-          file: ./frontend/Dockerfile
+          file: ./frontend/Dockerfile.prod
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/app-frontend:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/app-frontend:${{ github.sha }}
-          platforms: linux/amd64,linux/arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
-      # Optional: Build and Push Database (if you have a custom DB image)
+      # Optional: Build database if needed
+      - name: Build and Push Database
+        uses: docker/build-push-action@v5
+        with:
+          context: ./docker/database
+          file: ./docker/database/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/app-database:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/app-database:${{ github.sha }}
+        # Only run if database Dockerfile exists
+        if: hashFiles('./docker/database/Dockerfile') != ''
+
+      # Optional: Build PostgreSQL + pgAdmin (only if self-hosting)
       - name: Build and Push Database
         uses: docker/build-push-action@v5
         with:
@@ -59,11 +61,5 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/app-database:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/app-database:${{ github.sha }}
-          platforms: linux/amd64,linux/arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-        # Only run this step if database directory exists
+        # Only run if you have a custom database setup
         if: hashFiles('./database/Dockerfile') != ''
-
-      - name: Image digest
-        run: echo "Images pushed successfully with SHA ${{ github.sha }}"
