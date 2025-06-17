@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import express, { NextFunction, Request, Response } from 'express'
 import cookieParser from 'cookie-parser'
 import morgan from 'morgan'
@@ -8,7 +9,6 @@ import { NotFoundError } from './errors'
 import { PRODUCTION, JWT_SECRET, REFRESH_JWT_SECRET } from './constants'
 import routes from './routes'
 import { databaseConfig } from './config'
-import HTTP_CODE from './errors/httpCodes'
 
 // Environment execution info
 console.log(`Running in ${PRODUCTION ? 'PRODUCTION' : 'DEVELOPMENT'} mode\n`)
@@ -37,7 +37,13 @@ app.set('REFRESH_JWT_SECRET', REFRESH_JWT_SECRET)
 
 app.disable('x-powered-by')
 app.use(morgan('dev'))
-app.use(cors())
+
+// Updated CORS configuration for frontend connection
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://localhost:3001'],
+  credentials: true
+}))
+
 app.use(express.json())
 app.use(express.urlencoded({ extended: false }))
 app.use(cookieParser())
@@ -64,7 +70,7 @@ app.use((err: ExpressError, req: Request, res: Response, next: NextFunction) => 
   const isUnexpectedError = err.status === undefined
   console.log(err.message)
   console.log(err.stack)
-  res.status(err.status || HTTP_CODE.INTERNAL_ERROR)
+  res.status(err.status || 500)
   res.json({
     // For unexpected errors in production, hide the message since it could contain relevant info
     message: (isUnexpectedError && PRODUCTION) ? 'Internal error' : err.message,

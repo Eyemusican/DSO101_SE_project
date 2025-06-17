@@ -1,8 +1,7 @@
 # Development environment
-# Avoid using alpine here, since we often need python for frontend builds
-FROM node:14
 
-# Do not use 'COPY . .' to copy all files. Copying all files will force a build even if no client files have been modified
+FROM node:18
+
 
 # Set app directory
 WORKDIR /app
@@ -11,11 +10,11 @@ WORKDIR /app
 ENV NODE_OPTIONS=--max_old_space_size=4096
 ENV PATH /app/node_modules/.bin:$PATH
 
-# Install
+# Install with legacy peer deps to resolve ESLint conflict
 COPY package.json ./
 COPY sync-package-lock ./
-# If package-lock.json is not found in previous step, it will be created in the following npm install
-RUN npm install
+# Use --legacy-peer-deps to resolve the eslint version conflict
+RUN npm install --legacy-peer-deps
 
 # Development server
 COPY src ./src

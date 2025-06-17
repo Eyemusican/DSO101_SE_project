@@ -24,6 +24,12 @@ try {
   } else throw err
 }
 
+// Add fallback for development if API_HOST is not set
+if (!API_HOST) {
+  API_HOST = 'http://localhost:5000' 
+  console.log('Using fallback API_HOST:', API_HOST)
+}
+
 console.log({
   API_HOST,
   PRODUCTION,

@@ -1,0 +1,353 @@
+// BMI Calculator Styles
+.bmi-calculator-container {
+  max-width: 500px;
+  margin: 2rem auto;
+  padding: 1rem;
+}
+
+.bmi-calculator-card {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+
+  h2 {
+    color: #1f2937;
+    margin-bottom: 0.5rem;
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+
+  p {
+    color: #6b7280;
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+}
+
+.bmi-form {
+  .input-group {
+    margin-bottom: 1.5rem;
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: #374151;
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 2px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: border-color 0.2s ease;
+      box-sizing: border-box;
+
+      &:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      }
+
+      &::placeholder {
+        color: #9ca3af;
+      }
+    }
+  }
+
+  .error-message {
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    padding: 0.75rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+  }
+
+  .button-group {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+
+    button {
+      flex: 1;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: none;
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+    }
+
+    .calculate-btn {
+      background-color: #3b82f6;
+      color: white;
+
+      &:hover:not(:disabled) {
+        background-color: #2563eb;
+        transform: translateY(-1px);
+      }
+    }
+
+    .reset-btn {
+      background-color: #f3f4f6;
+      color: #374151;
+      border: 1px solid #d1d5db;
+
+      &:hover {
+        background-color: #e5e7eb;
+      }
+    }
+  }
+}
+
+.bmi-result {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background-color: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+
+  h3 {
+    color: #1e293b;
+    margin-bottom: 1rem;
+    text-align: center;
+    font-size: 1.2rem;
+  }
+
+  .result-details {
+    text-align: center;
+
+    .bmi-value, .bmi-category {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding: 0.5rem 0;
+
+      .label {
+        font-weight: 600;
+        color: #475569;
+      }
+
+      .value, .category {
+        font-weight: 700;
+        font-size: 1.1rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 6px;
+      }
+    }
+
+    .input-summary {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #cbd5e1;
+      
+      p {
+        color: #64748b;
+        font-size: 0.9rem;
+        margin: 0;
+      }
+    }
+  }
+}
+
+// BMI Category Colors
+.underweight {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.normal-weight {
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
+.overweight {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.obese {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+// Responsive Design
+@media (max-width: 640px) {
+  .bmi-calculator-container {
+    margin: 1rem;
+    padding: 0.5rem;
+  }
+
+  .bmi-calculator-card {
+    padding: 1.5rem;
+  }
+
+  .bmi-form .button-group {
+    flex-direction: column;
+    
+    button {
+      width: 100%;
+    }
+  }
+
+  .bmi-result .result-details {
+    .bmi-value, .bmi-category {
+      flex-direction: column;
+      gap: 0.5rem;
+      text-align: center;
+    }
+  }
+}
+
+.main-navigation {
+  background-color: #1f2937;
+  padding: 1rem 0;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  .nav-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .nav-title {
+      color: white;
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .nav-links {
+      display: flex;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      gap: 2rem;
+
+      li {
+        a {
+          color: #d1d5db;
+          text-decoration: none;
+          padding: 0.5rem 1rem;
+          border-radius: 6px;
+          transition: all 0.2s ease;
+          font-weight: 500;
+
+          &:hover {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.1);
+          }
+
+          &.active {
+            color: white;
+            background-color: #3b82f6;
+          }
+        }
+      }
+    }
+  }
+}
+
+.main-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+// Responsive navigation
+@media (max-width: 768px) {
+  .main-navigation .nav-container {
+    flex-direction: column;
+    gap: 1rem;
+
+    .nav-links {
+      gap: 1rem;
+    }
+  }
+}
+
+// Status message styles (add at the bottom)
+.status-message {
+  padding: 0.75rem;
+  border-radius: 6px;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: center;
+
+  &.success {
+    background-color: #dcfce7;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+  }
+
+  &.warning {
+    background-color: #fef3c7;
+    border: 1px solid #fde68a;
+    color: #92400e;
+  }
+}
+
+// BMI info section (add to .bmi-result)
+.bmi-result {
+  .bmi-info {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #cbd5e1;
+
+    h4 {
+      color: #475569;
+      margin-bottom: 0.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+
+      li {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e2e8f0;
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        span {
+          &:first-child {
+            font-weight: 600;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+          }
+
+          &:last-child {
+            color: #64748b;
+            font-size: 0.9rem;
+          }
+        }
+      }
+    }
+  }
+}

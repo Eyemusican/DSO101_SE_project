@@ -1,8 +1,6 @@
-# Development environment
+# Development environment with testing support
 
-FROM node:12-alpine
-
-# Do not use 'COPY . .' to copy all files. Copying all files will force a build even if no client files have been modified
+FROM node:18-alpine
 
 # Set app directory
 WORKDIR /app
@@ -10,25 +8,42 @@ WORKDIR /app
 # Environment variables
 ENV NODE_OPTIONS=--max_old_space_size=4096
 
-# Install
+# Install dependencies
 COPY package.json ./
 COPY sync-package-lock ./
-# If package-lock.json is not found in previous step, it will be created in the following npm install
 RUN npm install
 
-# Build
+# Install Jest and testing dependencies for BMI calculator tests
+RUN npm install --save-dev jest @types/jest ts-jest supertest @types/supertest
+
+# Build configuration
 COPY nodemon.json ./
 COPY tsconfig.json ./
 COPY src ./src
-# RUN npm run build
 
-# Migrations
+# Create jest.config.js for testing
+RUN echo 'module.exports = { \
+  preset: "ts-jest", \
+  testEnvironment: "node", \
+  roots: ["<rootDir>/src"], \
+  testMatch: ["**/__tests__/**/*.test.ts"], \
+  coverageDirectory: "coverage", \
+  collectCoverageFrom: [ \
+    "src/**/*.ts", \
+    "!src/**/*.d.ts" \
+  ] \
+};' > jest.config.js
+
+# Migrations and database setup
 COPY database ./
-# Run migrations. This is also responsible of copying node_modules and package-lock.json to host machine.
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
 
-ENTRYPOINT [ "/docker-entrypoint.sh" ]
+# Create directories for BMI data storage
+RUN mkdir -p /app/bmi-data /app/coverage
 
-# CMD is not executed when command is defined in docker compose
+# Remove entrypoint for now - not needed for basic functionality
+# COPY docker-entrypoint.sh /docker-entrypoint.sh
+# RUN chmod +x /docker-entrypoint.sh
+# ENTRYPOINT [ "/docker-entrypoint.sh" ]
+
+# Default command (can be overridden in docker-compose)
 CMD [ "npm", "run", "serve" ]

@@ -78,9 +78,9 @@ const webpackConfig = (env): Configuration => ({
     ]
   },
   devServer: {
-    // docker cant use localhost here
-    host: '0.0.0.0',
-    port: 3010,
+    // Change host to localhost for local development
+    host: 'localhost',
+    port: 3000, // Frontend runs on 3000
     headers: {
       'Access-Control-Allow-Origin': '*',
     },
@@ -89,14 +89,10 @@ const webpackConfig = (env): Configuration => ({
     historyApiFallback: true,
     proxy: {
       '/api': {
-        target: {
-          host: 'backend',
-          protocol: 'http:',
-          port: 3000
-        },
-        // ignorePath: true,
+        target: 'http://localhost:5000', // ✅ FIXED: Point to your backend on port 5000
         changeOrigin: true,
-        secure: false
+        secure: false,
+        logLevel: 'debug' // Add logging to see proxy requests
       }
     },
   },
@@ -114,7 +110,7 @@ const webpackConfig = (env): Configuration => ({
       }),
       // Set default arguments of 'npm run build'
       'process.env.PRODUCTION': env.production || JSON.stringify(false),
-      'process.env.API_HOST': JSON.stringify(env.API_HOST || '/api'),
+      'process.env.API_HOST': JSON.stringify(env.API_HOST || '/api'), // ✅ This stays as '/api' for proxy
       'process.env.NAME': JSON.stringify(require('./package.json').name),
       'process.env.VERSION': JSON.stringify(require('./package.json').version),
     }),
