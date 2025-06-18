@@ -1,6 +1,6 @@
 # Production environment
 # Avoid using alpine here, since we often need python for frontend builds
-FROM node:14 as build
+FROM node:14 AS build
 
 # Do not use 'COPY . .' to copy all files. Copying all files will force a build even if no client files have been modified
 
@@ -9,11 +9,11 @@ WORKDIR /app
 
 # Environment variables
 ENV NODE_OPTIONS=--max_old_space_size=4096
-ENV PATH /app/node_modules/.bin:$PATH
+ENV PATH=/app/node_modules/.bin:$PATH
 
 # Install
 COPY package.json ./
-COPY sync-package-lock ./
+COPY package-lock.json ./
 # In production, we will use the package lock generated in the development process. No versions surprises.
 RUN npm clean-install
 
