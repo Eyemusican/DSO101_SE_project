@@ -1,5 +1,4 @@
-import test, { describe } from 'node:test';
-import { calculateBMI } from '../src/services/bmiService'
+import { calculateBMI } from '../src/services/bmiService';
 
 // BMI Test Suite
 describe('BMI Calculator Service', () => {
@@ -104,7 +103,3 @@ describe('BMI Calculator Service', () => {
     });
   });
 });
-
-function expect(result: number) {
-  throw new Error('Function not implemented.');
-}

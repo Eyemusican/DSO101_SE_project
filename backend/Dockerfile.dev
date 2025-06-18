@@ -1,33 +1,23 @@
-# Production environment
 FROM node:12-alpine
 
-# Set app directory
 WORKDIR /app
-
-# Environment variables
 ENV NODE_OPTIONS=--max_old_space_size=4096
 
-# Copy package files
 COPY package.json ./
 
-# Install dependencies (this will work with or without package-lock.json)
-RUN npm install --production --no-optional
+# Install all dependencies (dev + prod)
+RUN npm install
 
-# Copy build configuration files
 COPY nodemon.json ./
 COPY tsconfig.json ./
 COPY src ./src
 
-# Build the application
 RUN npm run build
 
-# Copy database and migration files
 COPY database ./database
 
-# Copy and setup entrypoint script
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
-# Set entrypoint and default command
 ENTRYPOINT [ "/docker-entrypoint.sh" ]
 CMD [ "npm", "run", "serve" ]

@@ -1,394 +1,515 @@
-<!-- Improved compatibility of back to top link: See: https://github.com/othneildrew/Best-README-Template/pull/73 -->
-<a name="readme-top"></a>
-<!--
-*** Thanks for checking out the Best-README-Template. If you have a suggestion
-*** that would make this better, please fork the repo and create a pull request
-*** or simply open an issue with the tag "enhancement".
-*** Don't forget to give the project a star!
-*** Thanks again! Now go create something AMAZING! :D
--->
+## DSO101: Continuous Integration and Continuous Deployment - Final Project
 
-records : 
+This project sets up a DevSecOps pipeline for a PERN stack app (PostgreSQL, Express, React, Node.js) with a BMI Calculator. It uses only free cloud tools to show how modern CI/CD works.
+
+Tools used:
+
+1. Jenkins: Runs locally to sync code with GitHub
+
+2. GitHub Actions: Builds Docker images and deploys automatically
+
+3. Docker Hub: Stores the Docker images
+
+4. Render: Hosts the app online
+
+The main goal is to automate everything  from writing code to testing, building, and deploying — without spending money.
+
+
+### Main Components Used (Frontend):
+
+#### BMI Calculator Component (React + TypeScript) : 
+
+1. Uses useState for managing input and results
+
+2. Simple form with input validation
+
+3. Talks to backend API, but can also calculate locally if API fails
+
+4. Shows loading and error messages when needed
+
+
+#### Key Features:
+
+1. Input Validation
+
+2. Height must be between 50–300 cm
+
+3. Weight must be between 10–500 kg
+
+4. Age must be between 1–120 years
+
+Output : 
+
+![alt text](image-10.png)
+
+
+### BMI Calculator Backend : 
+
+This is a Node.js + Express backend for calculating and saving BMI data using a PostgreSQL database.
+
+#### Features
+
+1. Calculate BMI from height and weight
+
+2. Save BMI records with user info
+
+3. Get BMI history and latest record
+
+4. API with validation and error handling
+
+#### Tech Stack 
+
+1. Node.js, Express.js, TypeScript
+
+2. PostgreSQL with Knex.js
+
+3. Jest & Supertest for testing
+
+
+####  Setup 
+
+1. Install dependencies
+
+2. Set up .env file: 
+
+```
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_USER=postgres
+DATABASE_PASSWORD=Tenzin@2005
+DATABASE_NAME=dso101_project
+
+```
+
+3. Create database & run migration: 
+
+```
+CREATE TABLE IF NOT EXISTS bmi_record (
+      id SERIAL PRIMARY KEY,
+      user_id INT NOT NULL,
+      height DECIMAL(5,2) NOT NULL,
+      weight DECIMAL(5,2) NOT NULL,
+      bmi DECIMAL(4,2) NOT NULL,
+      category VARCHAR(255) NOT NULL,
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (id)
+    );
+  `)
+}
+
+```
+After creating the database, run:
+
+
+```
+npx knex migrate:latest
+```
+
+This command connects to PostgreSQL (using knexfile.js), checks which migrations haven't been run yet, and applies them. It sets up the tables (like bmi_record) as defined in the migration files.
+
+Output :
+
 ![alt text](image.png)
 
-![alt text](image-1.png)
+### API Endpoints
 
 
-![alt text](image-2.png)
+#### POST /api/bmi
+Saves BMI record to database.
+```
+{
+  "height": 175,
+  "weight": 70,
+  "age": 25,
+  "user_id": "user123"
+}
 
-hi tenzin i m
-![alt text](image-6.png)
+```
 
-![alt text](image-3.png)
+2. Get BMI History
+```
+GET /api/bmi?user_id=user123&limit=10
+```
+Returns a list of past BMI records for a user, sorted by most recent first.
 
-![alt text](image-4.png)
 
-![alt text](image-7.png)
+3. Get Latest BMI Record
+```
+GET /api/bmi/latest?user_id=user123
+```
+Fetches the most recent BMI record.
+
+4. Calculate BMI Only (no save)
+```
+POST /api/bmi/calculate
+```
+Calculates and returns BMI and category without storing it in the database.
+```
+{
+  "height": 175,
+  "weight": 70
+}
+```
+
+output : 
+
+![alt text](image-11.png)
+
+### BMI Categories:
+
+1. Underweight: BMI < 18.5
+
+2. Normal weight: 18.5 – 24.9
+
+3. Overweight: 25.0 – 29.9
+
+4. Obese: BMI ≥ 30.0
+
+
+### API Integration ( backend + frontend )
+
+1. The frontend sends user data to the backend using calculateAndSaveBMI.
+
+2. If the backend fails, it uses a local function to calculate BMI.
+
+3. Shows success or error messages to the user.
+
+4. BMI is calculated using the formula and shows category: Underweight, Normal, Overweight, or Obese.
+
+![alt text](image-12.png)
+
+The message indicates that backend and frontend are Sucessfully Connected.
+
+![alt text](image-13.png)
+
+
+### Stage 1: Docker Configuration
+
+#### Containerization Strategy : 
+
+1. Backend Dockerfile :
+
+```
+FROM node:12-alpine
+
+WORKDIR /app
+ENV NODE_OPTIONS=--max_old_space_size=4096
+
+COPY package.json ./
+
+# Install all dependencies (dev + prod)
+RUN npm install
+
+COPY nodemon.json ./
+COPY tsconfig.json ./
+COPY src ./src
+
+RUN npm run build
+
+COPY database ./database
+
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+ENTRYPOINT [ "/docker-entrypoint.sh" ]
+CMD [ "npm", "run", "serve" ]
+
+```
+
+
+2. Frontend dockerfile :
+
+```
+# Development environment
+
+FROM node:18
+
+
+# Set app directory
+WORKDIR /app
+
+# Environment variables
+ENV NODE_OPTIONS=--max_old_space_size=4096
+ENV PATH /app/node_modules/.bin:$PATH
+
+# Install with legacy peer deps to resolve ESLint conflict
+COPY package.json ./
+COPY sync-package-lock ./
+# Use --legacy-peer-deps to resolve the eslint version conflict
+RUN npm install --legacy-peer-deps
+
+# Development server
+COPY src ./src
+COPY public ./public
+COPY .eslintrc.js ./
+COPY tsconfig.json ./
+COPY webpack.config.ts ./
+
+# This is responsible of copying node_modules and package-lock.json to host machine
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+ENTRYPOINT [ "/docker-entrypoint.sh" ]
+
+CMD [ "npm", "start" ]
+
+```
+
+
+As part of Stage 1, I configured Docker and docker-compose-dev.yml to support the BMI calculator service. This included adding volumes for BMI data and running tests via Docker Compose.
+
+#### Issue Faced:
+
+While running the test using:
+```
+docker-compose -f docker-compose-dev.yml run backend npm test
+
+```
+
+I encountered the following error:
+```
+exec /docker-entrypoint.sh: no such file or directory
+exit status 255
+
+```
+
+#### Output:
+
+Despite the error, the Docker image built successfully, as shown in the output screenshot below:
+
+![alt text](image-13.png)
+
+
+
+### Stage 2: Jenkins Pipeline Setup
+
+I Set up a local Jenkins pipeline to automatically push code to GitHub when the latest commit message contains @push.
+
+#### Pipeline Job
+
+Created Jenkins pipeline job named: **02230307_app_pipeline**
+
+Integrated the following stages in the Jenkinsfile:
+
+1. Check Commit Message – Triggers push only if @push is present.
+
+2. Checkout, Build Frontend/Backend – Installs dependencies and builds the app.
+
+3.  Test – Section provided for frontend/backend test execution (commented).
+
+4. Push to GitHub – Executes only when @push is detected in the latest commit.
+
+
+
+### Credential Management
+GitHub PAT credentials added:
+
+1. ID: github-credentials
+2. Scope: Global
+3. Used in pipeline to configure remote and authenticate git push.
+
+in jenkins file :
+
+```
+pipeline {
+    agent any
+    
+    environment {
+        // Store GitHub credentials in Jenkins Secrets
+        GITHUB_CREDS = credentials('github-credentials')
+        REPO_URL = 'https://github.com/Eyemusican/DSO101_SE_project.git'
+    }
+    
+```
+### Store in Jenkins Credentials 
+Manage Jenkins → Credentials → System → Global Credentials :
+
+Add new credentials:
+
+1. Kind: Username and Password
+
+2. ID: github-credentials
+
+3. Username: Your GitHub username
+
+4. Password: Your generated Personal Access Token
+
+This allows Jenkins to push code securely to your GitHub repository.
+
+![alt text](image-14.png)
+
+### Create Personal Access Token (PAT)
+
+1. GitHub → Settings → Developer Settings → Personal Access Tokens
+
+2. Generate a token with repo scope (recommended: classic token)
+
+3. This token acts as your GitHub password for Jenkins (Password: Your generated Personal Access Token for above  )
+
+![alt text](image-15.png)
+
+
+### Testing the Pipeline
+Made two commits:
+
+1. One without @push → Push stage skipped
+
+2. One with @push → Jenkins automatically pushed code to GitHub
+
+Confirmed working GitHub integration and conditional automation
+
+#### Outputs : 
+Without push :
 
 ![alt text](image-8.png)
 
-![alt text](image-5.png)
-
-
+With push :
+
+![alt text](image-8.png)
+
+
+
+### Stage 3: GitHub Actions CI/CD
+Automated Docker Build Pipeline
+Created .github/workflows/ci-cd.yml:
+
+```
+name: Docker Build and Push
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
 
-<!-- PROJECT SHIELDS -->
-<!--
-*** I'm using markdown "reference style" links for readability.
-*** Reference links are enclosed in brackets [ ] instead of parentheses ( ).
-*** See the bottom of this document for the declaration of the reference variables
-*** for contributors-url, forks-url, etc. This is an optional, concise syntax you may use.
-*** https://www.markdownguide.org/basic-syntax/#reference-style-links
--->
-<!-- [![Contributors][contributors-shield]][contributors-url]
-[![Forks][forks-shield]][forks-url]
-[![Stargazers][stars-shield]][stars-url]
-[![Issues][issues-shield]][issues-url]
-[![MIT License][license-shield]][license-url]
-[![LinkedIn][linkedin-shield]][linkedin-url] -->
-
-
-
-<!-- PROJECT LOGO -->
-<br />
-<div align="center">
-  <h2>PERN Dockerized Stack</h2>
-  <br />
-
-[![PostgreSQL][PostgreSQL]][PostgreSQL-url]
-[![Express][Express]][Express-url]
-[![React][React.js]][React-url]
-[![Nodejs][Node.js]][Node-url]
-[![Docker][Docker]][Docker-url]
-
-  <p>
-    <br />
-    <a href="https://github.com/adefrutoscasado/pern-dockerized-stack/issues">Report Bug</a>
-    ·
-    <a href="https://github.com/adefrutoscasado/pern-dockerized-stack/issues">Request Feature</a>
-  </p>
-</div>
-
-
-<!-- TABLE OF CONTENTS -->
-<details>
-  <summary>Table of Contents</summary>
-  <ol>
-    <li>
-      <a href="#about-the-project">About The Project</a>
-    </li>
-    <li>
-      <a href="#variants">Variants</a>
-    </li>
-    <li>
-      <a href="#getting-started">Getting Started</a>
-      <ul>
-        <li><a href="#prerequisites">Prerequisites</a></li>
-        <li><a href="#installation">Installation</a></li>
-      </ul>
-    </li>
-    <li><a href="#usage">Usage</a></li>
-    <li><a href="#roadmap">Roadmap</a></li>
-    <li><a href="#contributing">Contributing</a></li>
-    <!-- <li><a href="#license">License</a></li> -->
-    <li><a href="#contact">Contact</a></li>
-    <!-- <li><a href="#acknowledgments">Acknowledgments</a></li> -->
-  </ol>
-</details>
-
-
-
-<!-- ABOUT THE PROJECT -->
-## About The Project
-
-This project implements the main features to deploy a PERN stack application.
-
-- No `create-react-app` clones. A minimal webpack config is provided. No hacks to configure!
-- Development hot reload for both backend and frontend.
-- Node modules managed entirely by docker. Package version integrity across developers and environments. Including IDE access to node modules.
-- Docker versioning for easy deploys and rollbacks.
-- Endpoint and docker volume to upload files.
-- Database migrations (Optional).
-
-<!-- VARIANTS -->
-## Variants
-
-Want even more boilerplate code? Try following variant:
-
-- [Version including `prisma`](https://github.com/adefrutoscasado/pern-dockerized-stack/tree/prisma)
-
-
-<!-- GETTING STARTED -->
-## Getting Started
-
-### Prerequisites
-
-You must have following software installed in your System:
-- `docker`
-- `docker-compose`
-
-
-
-### Installation
-
-1. Clone the repo:
-    ```sh
-    git clone https://github.com/adefrutoscasado/pern-dockerized-stack.git
-    ```
-2. Start the container:
-    ```sh
-    cd pern-dockerized-stack/docker
-    docker-compose -f docker-compose-dev.yml up
-    ```
-    Or, to keep logs separate, start each service individually in different terminals:
-
-    ```sh
-    cd pern-dockerized-stack/docker
-    docker-compose -f docker-compose-dev.yml up database
-    docker-compose -f docker-compose-dev.yml up backend
-    docker-compose -f docker-compose-dev.yml up frontend
-    ```
-    Frontend will be served at [localhost:3010](localhost:3010)
-
-
-<!-- USAGE EXAMPLES -->
-## Usage
-
-<details>
-  <summary>Installing a package</summary>
-  <ol>
-  <br />
-
-  In order to share a similar environment across team, packages are managed inside the container. This is important, since different machines, node versions or packages can behave differently. Never execute `npm install package` by yourself, since it would be running under your local node installation. Instead, add the package to the `package.json` and then run:
-
-  ```bash
-  docker-compose -f docker-compose-dev.yml build backend
-  # or
-  docker-compose -f docker-compose-dev.yml build frontend
-  ```
-
-  After this, starting the containuer will dump the updated node modules to your local machine, so your IDE will be able to access it.
-
-  <br />
-  </ol>
-</details>
-
-<details>
-  <summary>Erasing all data (uploads folder and database data)</summary>
-  <ol>
-  <br />
-
-  To reset all volumes completely use following command (**data will be lost**):
-  ```
-  docker-compose -f docker-compose-dev.yml down -v
-  ```
-
-  <br />
-  </ol>
-</details>
-
-<details>
-  <summary>Erasing uploads folder</summary>
-  <ol>
-  <br />
-
-  List all volumes using:
-
-  ```bash
-  docker volume ls
-  ```
-  Remove the specified volume using:
-  ```bash
-  docker volume rm docker_backend-uploads
-  ```
-
-  <br />
-  </ol>
-</details>
-
-<details>
-  <summary>Erasing database data</summary>
-  <ol>
-  <br />
-
-  List all volumes using:
-
-  ```bash
-  docker volume ls
-  ```
-  Remove the specified volume using:
-
-  ```bash
-  docker volume rm docker_database-data
-  ```
-
-  <br />
-  </ol>
-</details>
-
-<details>
-  <summary>Log management</summary>
-  <ol>
-  <br />
-
-  Logs can take up a lot of space on a server's hard drive, which can result in a lack of available space for other important files. By limiting the size of the logs, you can ensure that enough space is available for the necessary files. Following configuration at `docker/docker-compose-prod.yml` sets a maximum of 5 log files with a max size of 10 Mb each. So at most 50 Mb of logs for that container. Tune those numbers as you see fit.
-
-  ```yaml
-  logging:
-    driver: "json-file"
-    options:
-      max-size: "10m"
-      max-file: "5"
-  ```
+env:
+  FRONTEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/pern-frontend
+  BACKEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/pern-backend
+  DOCKER_BUILDKIT: 1
 
-  <br />
-  </ol>
-</details>
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-<details>
-  <summary>Migrations</summary>
-  <ol>
-  <br />
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-flags: --debug
 
-  Migrations are optional. If you prefer to manage dabatase changes manually, just ignore this part.
-  Migrations are configured at `backend/database/migrations` and are managed by [Knex](https://knexjs.org/guide/migrations.html). Two disabled files are included as example. To create a migration, just create a new file using `<filename>.js`. The order of execution of migrations is defined by the filename.
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
 
-  <br />
-  </ol>
-</details>
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-<details>
-  <summary>Installing docker `buildx` plugin to push images to different machine architectures</summary>
-  <ol>
-  <br />
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile.prod
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:latest
+            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          cache-from: |
+            type=local,src=/tmp/.buildx-cache
+            type=registry,ref=${{ env.FRONTEND_IMAGE }}:latest
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
 
-  Download `buildx` binaries for your development local machine:
-  [https://github.com/docker/buildx/releases](https://github.com/docker/buildx/releases)
+      - name: Build and push Backend image  
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile.prod
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:latest
+            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          cache-from: |
+            type=local,src=/tmp/.buildx-cache
+            type=registry,ref=${{ env.BACKEND_IMAGE }}:latest
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
 
-  Rename the binary to `docker-buildx` and move the binary file to `~/.docker/cli-plugins/docker-buildx`. Give permissions to execute:
+      # Temp fix for cache
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+```
 
-  ```bash
-  chmod +x ~/.docker/cli-plugins/docker-buildx
-  ```
+#### Security Integration : 
 
-  Install following needed packages:
+1. Added Docker Hub username and token as secrets in the GitHub repo (Settings → Actions → Secrets and Variables)
 
-  ```bash
-  sudo apt install -y qemu-user-static binfmt-support
-  ```
+2. Used these secrets in GitHub Actions for secure Docker image login and push
 
-  <br />
-  </ol>
-</details>
+3. Successfully tested secret access during workflow runs
 
-<details>
-  <summary>Pulling changes from original repository</summary>
-  <ol>
-  <br />
+![alt text](image-16.png)
 
-  Once you cloned this repository, you can still pull changes from original repository using following steps:
 
-  ```bash
-  git remote add upstream git@github.com:adefrutoscasado/pern-dockerized-stack.git
-  ```
-  ```bash
-  git pull upstream main
-  ```
+Output : 
 
-  <br />
-  </ol>
-</details>
+The Docker build and push workflow (docker-build.yml) ran successfully after a commit to the main branch.
 
-<!-- ROADMAP -->
-## Roadmap
+![alt text](image-9.png)
 
-- &#x2611; Backend
-  - &#x2611; Hot reload at development
-  - &#x2611; Package version integrity
-  - &#x2611; Production docker compose
-  - &#x2611; Database migrations
-  - &#x2611; Create upload file endpoint
-  - &#x2611; Log management
-- &#x2611; Frontend
-  - &#x2611; Hot reload at development
-  - &#x2611; Package version integrity
-  - &#x2611; Production docker compose
-- &#x2610; Docker registry instructions (Docker versioning)
-- &#x2610; Usage instructions
 
-See the [open issues](https://github.com/adefrutoscasado/pern-dockerized-stack/issues) for a full list of proposed features (and known issues).
 
+#### Stage 3: Deploy to Render 
+Objective: Deploy services to Render.
 
 
-<!-- CONTRIBUTING -->
-## Contributing
 
-Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
 
-If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement".
-Don't forget to give the project a star! Thanks again!
+ I Created a PostgreSQL Database on Render.
+- I   Copied the database credentials: host, port, name, username, and password.
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+Deployed the Backend Service:
 
+- Selected "Deploy an existing image" option.
 
+- Used Docker image: eyemusician/pern-backend
 
-<!-- LICENSE -->
-## License
+- Added the required environment variables:
 
-Distributed under the MIT License. See `LICENSE.md` for more information.
+- - DATABASE_HOST, DATABASE_PORT, DATABASE_USER, DATABASE_PASSWORD, DATABASE_NAME
 
+![alt text](image-17.png)
 
 
-<!-- CONTACT -->
-## Contact
 
-Project Link: [https://github.com/adefrutoscasado/pern-dockerized-stack](https://github.com/adefrutoscasado/pern-dockerized-stack)
+https://pern-backend-ommc.onrender.com
 
+Fronte-end deployment error :
 
+![alt text](image-18.png)
 
-<!-- ACKNOWLEDGMENTS -->
-<!-- ## Acknowledgments
+My frontend deployment on Render failed because the Nginx server inside the Docker image was trying to connect to a service named backend, which couldn't be found. This error happens because the name backend is valid only in Docker Compose (where services share a network). On Render, services are deployed separately and must be accessed using their actual Render URLs. Since I didn't update the Nginx config or frontend API endpoint to point to the correct backend URL on Render, it caused the deployment to crash with a "host not found" error.
 
-* []()
-* []()
-* []() -->
 
 
 
-<!-- MARKDOWN LINKS & IMAGES -->
-<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-<!-- [contributors-shield]: https://img.shields.io/github/contributors/adefrutoscasado/pern-dockerized-stack.svg?style=for-the-badge
-[contributors-url]: https://github.com/adefrutoscasado/pern-dockerized-stack/graphs/contributors
 
-[forks-shield]: https://img.shields.io/github/forks/adefrutoscasado/pern-dockerized-stack.svg?style=for-the-badge
-[forks-url]: https://github.com/adefrutoscasado/pern-dockerized-stack/network/members
 
-[stars-shield]: https://img.shields.io/github/stars/adefrutoscasado/pern-dockerized-stack.svg?style=for-the-badge
-[stars-url]: https://github.com/adefrutoscasado/pern-dockerized-stack/stargazers
 
-[issues-shield]: https://img.shields.io/github/issues/adefrutoscasado/pern-dockerized-stack.svg?style=for-the-badge
-[issues-url]: https://github.com/adefrutoscasado/pern-dockerized-stack/issues
 
-[license-shield]: https://img.shields.io/github/license/adefrutoscasado/pern-dockerized-stack.svg?style=for-the-badge
-[license-url]: https://github.com/adefrutoscasado/pern-dockerized-stack/blob/master/LICENSE.txt
-
-[linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
-[linkedin-url]: https://linkedin.com/in/linkedin_username -->
-
-[React.js]: https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB
-[React-url]: https://reactjs.org/
-
-[Node.js]: https://img.shields.io/badge/node.js-6DA55F?style=for-the-badge&logo=node.js&logoColor=white
-[Node-url]: https://nodejs.org/
-
-[PostgreSQL]: https://img.shields.io/badge/postgresql-336690.svg?style=for-the-badge&logo=postgresql&logoColor=white
-[PostgreSQL-url]: https://www.postgresql.org//
-
-[Docker]: https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white
-[Docker-url]: https://www.docker.com/
-
-[Express]: https://img.shields.io/badge/express-%23404d59.svg?style=for-the-badge&logo=express&logoColor=%2361DAFB
-[Express-url]: https://expressjs.com/
