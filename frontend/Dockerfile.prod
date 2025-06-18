@@ -8,7 +8,7 @@ FROM node:14 as build
 WORKDIR /app
 
 # Environment variables
-ENV NODE_OPTIONS="--max_old_space_size=4096 --openssl-legacy-provider"
+ENV NODE_OPTIONS=--max_old_space_size=4096
 ENV PATH /app/node_modules/.bin:$PATH
 
 # Install
@@ -24,7 +24,7 @@ COPY public ./public
 COPY .eslintrc.js ./
 COPY tsconfig.json ./
 COPY webpack.config.ts ./
-RUN npm run build
+RUN NODE_OPTIONS="--max_old_space_size=4096 --openssl-legacy-provider" npm run build
 
 # Nginx proxy to serve backend ('/api') and frontend ('/') from same port
 FROM nginx:stable-alpine
