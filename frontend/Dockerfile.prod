@@ -15,7 +15,7 @@ ENV PATH /app/node_modules/.bin:$PATH
 COPY package.json ./
 COPY package-lock.json ./
 # In production, we will use the package lock generated in the development process. No versions surprises.
-RUN npm clean-install --legacy-peer-deps --production=false
+RUN npm install --legacy-peer-deps --production=false
 ENV NODE_ENV=production
 
 # Build
@@ -24,7 +24,7 @@ COPY public ./public
 COPY .eslintrc.js ./
 COPY tsconfig.json ./
 COPY webpack.config.ts ./
-RUN NODE_OPTIONS="--max_old_space_size=4096 --openssl-legacy-provider" npm run build
+RUN npm run build
 
 # Nginx proxy to serve backend ('/api') and frontend ('/') from same port
 FROM nginx:stable-alpine
