@@ -20,6 +20,7 @@ COPY src ./src
 
 # Build the application
 RUN npm run build
+RUN npm install --legacy-peer-deps
 
 # Copy database and migration files
 COPY database ./database
