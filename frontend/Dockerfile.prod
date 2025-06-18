@@ -8,14 +8,14 @@ FROM node:14 as build
 WORKDIR /app
 
 # Environment variables
-ENV NODE_OPTIONS=--max_old_space_size=4096
+ENV NODE_OPTIONS="--max_old_space_size=4096 --openssl-legacy-provider"
 ENV PATH /app/node_modules/.bin:$PATH
 
 # Install
 COPY package.json ./
 COPY package-lock.json ./
 # In production, we will use the package lock generated in the development process. No versions surprises.
-RUN npm install --production
+RUN npm clean-install --legacy-peer-deps --production=false
 ENV NODE_ENV=production
 
 # Build
