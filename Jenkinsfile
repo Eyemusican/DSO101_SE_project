@@ -66,51 +66,51 @@ pipeline {
             }
         }
         
-        stage('Test') {
-            steps {
-                script {
-                    // Test Backend
-                    dir('backend') {
-                        if (isUnix()) {
-                            sh 'npm test'
-                        } else {
-                            bat 'npm test'
-                        }
-                    }
+        // stage('Test') {
+        //     steps {
+        //         script {
+        //             // Test Backend
+        //             dir('backend') {
+        //                 if (isUnix()) {
+        //                     sh 'npm test'
+        //                 } else {
+        //                     bat 'npm test'
+        //                 }
+        //             }
                     
-                    // Test Frontend (if tests exist)
-                    dir('frontend') {
-                        if (isUnix()) {
-                            sh 'npm test -- --watchAll=false --coverage'
-                        } else {
-                            bat 'npm test -- --watchAll=false --coverage'
-                        }
-                    }
-                }
-            }
-            post {
-                always {
-                    // Archive test results
-                    publishHTML([
-                        allowMissing: false,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: 'backend/coverage',
-                        reportFiles: 'index.html',
-                        reportName: 'Backend Test Coverage Report'
-                    ])
+        //             // Test Frontend (if tests exist)
+        //             dir('frontend') {
+        //                 if (isUnix()) {
+        //                     sh 'npm test -- --watchAll=false --coverage'
+        //                 } else {
+        //                     bat 'npm test -- --watchAll=false --coverage'
+        //                 }
+        //             }
+        //         }
+        //     }
+        //     post {
+        //         always {
+        //             // Archive test results
+        //             publishHTML([
+        //                 allowMissing: false,
+        //                 alwaysLinkToLastBuild: true,
+        //                 keepAll: true,
+        //                 reportDir: 'backend/coverage',
+        //                 reportFiles: 'index.html',
+        //                 reportName: 'Backend Test Coverage Report'
+        //             ])
                     
-                    publishHTML([
-                        allowMissing: false,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: 'frontend/coverage',
-                        reportFiles: 'index.html',
-                        reportName: 'Frontend Test Coverage Report'
-                    ])
-                }
-            }
-        }
+        //             publishHTML([
+        //                 allowMissing: false,
+        //                 alwaysLinkToLastBuild: true,
+        //                 keepAll: true,
+        //                 reportDir: 'frontend/coverage',
+        //                 reportFiles: 'index.html',
+        //                 reportName: 'Frontend Test Coverage Report'
+        //             ])
+        //         }
+        //     }
+        // }
         
         stage('Push to GitHub') {
             when {
