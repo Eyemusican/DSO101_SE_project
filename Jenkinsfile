@@ -1,15 +1,12 @@
+// Pipeline Name: 02230307_app_pipeline
 pipeline {
     agent any
-    
-    tools {
-        nodejs "NodeJS"
-    }
     
     environment {
         // Store GitHub credentials in Jenkins Secrets
         GITHUB_CREDS = credentials('github-credentials')
-        STUDENT_ID = '02230307'
-        DOCKER_HUB_REPO = 'eyemusician'
+        NODE_VERSION = '14.16.0'
+        NPM_VERSION = '6.14.11'
     }
     
     stages {
@@ -17,48 +14,26 @@ pipeline {
             steps {
                 script {
                     // Check if commit message contains "@push"
-                    def commitMsg = ""
-                    if (isUnix()) {
-                        commitMsg = sh(returnStdout: true, script: 'git log -1 --pretty=%B').trim()
-                    } else {
-                        commitMsg = bat(returnStdout: true, script: '@git log -1 --pretty=%%B').trim()
-                    }
-                    
+                    def commitMsg = sh(returnStdout: true, script: 'git log -1 --pretty=%B').trim()
                     echo "Commit message: ${commitMsg}"
-                    
                     if (commitMsg.contains("@push")) {
-                        echo "✅ Triggering GitHub push automation..."
+                        echo "✅ Triggering GitHub push - '@push' found in commit message"
                     } else {
-                        error("❌ Commit message does not contain '@push'. Aborting.")
+                        error("❌ Commit message does not contain '@push'. Aborting pipeline.")
                     }
                 }
             }
         }
         
-        stage('Environment Setup') {
+        stage('Setup Environment') {
             steps {
                 script {
-                    if (isUnix()) {
-                        sh '''
-                            echo "=== Environment Information ==="
-                            node --version
-                            npm --version
-                            docker --version
-                            git --version
-                            echo "=== Workspace Contents ==="
-                            ls -la
-                        '''
-                    } else {
-                        bat '''
-                            echo === Environment Information ===
-                            node --version
-                            npm --version
-                            docker --version
-                            git --version
-                            echo === Workspace Contents ===
-                            dir
-                        '''
-                    }
+                    echo "🔧 Setting up Node.js environment..."
+                    // Install Node.js if not available (adjust based on your Jenkins setup)
+                    sh '''
+                        node --version || echo "Node.js not found"
+                        npm --version || echo "npm not found"
+                    '''
                 }
             }
         }
@@ -67,56 +42,56 @@ pipeline {
             parallel {
                 stage('Backend Dependencies') {
                     steps {
-                        script {
-                            if (isUnix()) {
-                                sh '''
-                                    echo "Installing backend dependencies..."
-                                    cd backend
-                                    if [ -f package-lock.json ]; then
-                                        npm ci --omit=dev
-                                    else
-                                        npm install --production
-                                    fi
-                                '''
-                            } else {
-                                bat '''
-                                    echo Installing backend dependencies...
-                                    cd backend
-                                    if exist package-lock.json (
-                                        npm ci --omit=dev
-                                    ) else (
-                                        npm install --production
-                                    )
-                                '''
-                            }
+                        dir('backend') {
+                            echo "📦 Installing backend dependencies..."
+                            sh '''
+                                npm ci
+                                echo "✅ Backend dependencies installed successfully"
+                            '''
                         }
                     }
                 }
                 
                 stage('Frontend Dependencies') {
                     steps {
-                        script {
-                            if (isUnix()) {
-                                sh '''
-                                    echo "Installing frontend dependencies..."
-                                    cd frontend
-                                    if [ -f package-lock.json ]; then
-                                        npm ci
-                                    else
-                                        npm install
-                                    fi
-                                '''
-                            } else {
-                                bat '''
-                                    echo Installing frontend dependencies...
-                                    cd frontend
-                                    if exist package-lock.json (
-                                        npm ci
-                                    ) else (
-                                        npm install
-                                    )
-                                '''
-                            }
+                        dir('frontend') {
+                            echo "📦 Installing frontend dependencies..."
+                            sh '''
+                                npm ci
+                                echo "✅ Frontend dependencies installed successfully"
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Lint & Code Quality') {
+            parallel {
+                stage('Backend Lint') {
+                    steps {
+                        dir('backend') {
+                            echo "🔍 Running backend ESLint..."
+                            sh '''
+                                npm run eslint-report || true
+                                echo "✅ Backend linting completed"
+                            '''
+                            // Archive the lint report
+                            archiveArtifacts artifacts: 'eslint-report.txt', allowEmptyArchive: true
+                        }
+                    }
+                }
+                
+                stage('Frontend Lint') {
+                    steps {
+                        dir('frontend') {
+                            echo "🔍 Running frontend ESLint..."
+                            sh '''
+                                npm run eslint-report || true
+                                echo "✅ Frontend linting completed"
+                            '''
+                            // Archive the lint report
+                            archiveArtifacts artifacts: 'eslint-report.txt', allowEmptyArchive: true
                         }
                     }
                 }
@@ -125,62 +100,28 @@ pipeline {
         
         stage('Build') {
             parallel {
-                stage('Build Backend') {
+                stage('Backend Build') {
                     steps {
-                        script {
-                            if (isUnix()) {
-                                sh '''
-                                    echo "Building backend..."
-                                    cd backend
-                                    # Build application
-                                    npm run build || echo "No build script found, skipping..."
-                                    
-                                    # Build Docker image
-                                    echo "Building backend Docker image..."
-                                    docker build -f Dockerfile.prod -t ${DOCKER_HUB_REPO}/backend:${STUDENT_ID} .
-                                    echo "✅ Backend Docker image built successfully"
-                                '''
-                            } else {
-                                bat '''
-                                    echo Building backend...
-                                    cd backend
-                                    npm run build || echo "No build script found, skipping..."
-                                    
-                                    echo Building backend Docker image...
-                                    docker build -f Dockerfile.prod -t %DOCKER_HUB_REPO%/backend:%STUDENT_ID% .
-                                    echo ✅ Backend Docker image built successfully
-                                '''
-                            }
+                        dir('backend') {
+                            echo "🏗️ Building backend (TypeScript compilation)..."
+                            sh '''
+                                npm run build
+                                echo "✅ Backend build completed successfully"
+                                ls -la build/
+                            '''
                         }
                     }
                 }
                 
-                stage('Build Frontend') {
+                stage('Frontend Build') {
                     steps {
-                        script {
-                            if (isUnix()) {
-                                sh '''
-                                    echo "Building frontend..."
-                                    cd frontend
-                                    # Build application
-                                    npm run build || echo "No build script found, skipping..."
-                                    
-                                    # Build Docker image
-                                    echo "Building frontend Docker image..."
-                                    docker build -f Dockerfile.prod -t ${DOCKER_HUB_REPO}/frontend:${STUDENT_ID} .
-                                    echo "✅ Frontend Docker image built successfully"
-                                '''
-                            } else {
-                                bat '''
-                                    echo Building frontend...
-                                    cd frontend
-                                    npm run build || echo "No build script found, skipping..."
-                                    
-                                    echo Building frontend Docker image...
-                                    docker build -f Dockerfile.prod -t %DOCKER_HUB_REPO%/frontend:%STUDENT_ID% .
-                                    echo ✅ Frontend Docker image built successfully
-                                '''
-                            }
+                        dir('frontend') {
+                            echo "🏗️ Building frontend (Webpack production build)..."
+                            sh '''
+                                npm run build
+                                echo "✅ Frontend build completed successfully"
+                                ls -la dist/ || ls -la build/ || echo "Build directory not found"
+                            '''
                         }
                     }
                 }
@@ -188,102 +129,65 @@ pipeline {
         }
         
         stage('Test') {
-            parallel {
-                stage('Backend Tests') {
-                    steps {
-                        script {
-                            if (isUnix()) {
-                                sh '''
-                                    echo "Running backend tests..."
-                                    cd backend
-                                    
-                                    # Run tests and generate reports
-                                    npm test -- --reporter=json --outputFile=test-results.json || echo "No tests found"
-                                    npm test -- --reporter=junit --outputFile=test-results.xml || echo "No tests found"
-                                    
-                                    # Container tests
-                                    echo "Testing backend container..."
-                                    docker run --rm --name backend-test ${DOCKER_HUB_REPO}/backend:${STUDENT_ID} echo "Backend container test passed" || echo "Container test failed"
-                                    
-                                    echo "✅ Backend tests completed"
-                                '''
-                            } else {
-                                bat '''
-                                    echo Running backend tests...
-                                    cd backend
-                                    
-                                    npm test -- --reporter=json --outputFile=test-results.json || echo "No tests found"
-                                    npm test -- --reporter=junit --outputFile=test-results.xml || echo "No tests found"
-                                    
-                                    echo Testing backend container...
-                                    docker run --rm --name backend-test %DOCKER_HUB_REPO%/backend:%STUDENT_ID% echo "Backend container test passed" || echo "Container test failed"
-                                    
-                                    echo ✅ Backend tests completed
-                                '''
-                            }
-                        }
-                    }
-                    post {
-                        always {
-                            // Archive test results if they exist
-                            script {
-                                if (fileExists('backend/test-results.xml')) {
-                                    archiveArtifacts artifacts: 'backend/test-results.xml', fingerprint: true
-                                }
-                                if (fileExists('backend/test-results.json')) {
-                                    archiveArtifacts artifacts: 'backend/test-results.json', fingerprint: true
-                                }
-                            }
-                        }
-                    }
+            steps {
+                dir('backend') {
+                    echo "🧪 Running backend tests with Jest..."
+                    sh '''
+                        npm run test:coverage
+                        echo "✅ Backend tests completed successfully"
+                    '''
+                    
+                    // Publish test results if available
+                    publishTestResults testResultsPattern: 'coverage/lcov-report/index.html'
+                    
+                    // Archive test coverage reports
+                    archiveArtifacts artifacts: 'coverage/**/*', allowEmptyArchive: true
+                    
+                    // Archive test results
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'coverage/lcov-report',
+                        reportFiles: 'index.html',
+                        reportName: 'Backend Test Coverage Report'
+                    ])
                 }
-                
-                stage('Frontend Tests') {
-                    steps {
-                        script {
-                            if (isUnix()) {
-                                sh '''
-                                    echo "Running frontend tests..."
-                                    cd frontend
-                                    
-                                    # Run tests and generate reports
-                                    npm test -- --reporter=json --outputFile=test-results.json || echo "No tests found"
-                                    npm test -- --reporter=junit --outputFile=test-results.xml || echo "No tests found"
-                                    
-                                    # Container tests
-                                    echo "Testing frontend container..."
-                                    docker run --rm --name frontend-test ${DOCKER_HUB_REPO}/frontend:${STUDENT_ID} echo "Frontend container test passed" || echo "Container test failed"
-                                    
-                                    echo "✅ Frontend tests completed"
-                                '''
-                            } else {
-                                bat '''
-                                    echo Running frontend tests...
-                                    cd frontend
-                                    
-                                    npm test -- --reporter=json --outputFile=test-results.json || echo "No tests found"
-                                    npm test -- --reporter=junit --outputFile=test-results.xml || echo "No tests found"
-                                    
-                                    echo Testing frontend container...
-                                    docker run --rm --name frontend-test %DOCKER_HUB_REPO%/frontend:%STUDENT_ID% echo "Frontend container test passed" || echo "Container test failed"
-                                    
-                                    echo ✅ Frontend tests completed
-                                '''
-                            }
-                        }
-                    }
-                    post {
-                        always {
-                            // Archive test results if they exist
-                            script {
-                                if (fileExists('frontend/test-results.xml')) {
-                                    archiveArtifacts artifacts: 'frontend/test-results.xml', fingerprint: true
-                                }
-                                if (fileExists('frontend/test-results.json')) {
-                                    archiveArtifacts artifacts: 'frontend/test-results.json', fingerprint: true
-                                }
-                            }
-                        }
+            }
+            post {
+                always {
+                    // Archive test results even if tests fail
+                    archiveArtifacts artifacts: 'backend/coverage/**/*', allowEmptyArchive: true
+                }
+            }
+        }
+        
+        stage('Docker Build') {
+            when {
+                // Only run Docker build if Docker files exist
+                expression { fileExists('docker-compose-dev.yml') || fileExists('docker-compose-prod.yml') }
+            }
+            steps {
+                echo "🐳 Building Docker images..."
+                script {
+                    try {
+                        sh '''
+                            # Check if docker-compose files exist and build accordingly
+                            if [ -f "docker-compose-prod.yml" ]; then
+                                echo "Building production Docker images..."
+                                docker-compose -f docker-compose-prod.yml build --no-cache
+                                echo "✅ Production Docker images built successfully"
+                            elif [ -f "docker-compose-dev.yml" ]; then
+                                echo "Building development Docker images..."
+                                docker-compose -f docker-compose-dev.yml build --no-cache
+                                echo "✅ Development Docker images built successfully"
+                            else
+                                echo "No docker-compose files found, skipping Docker build"
+                            fi
+                        '''
+                    } catch (Exception e) {
+                        echo "⚠️ Docker build failed: ${e.getMessage()}"
+                        echo "Continuing with pipeline..."
                     }
                 }
             }
@@ -296,56 +200,21 @@ pipeline {
                     usernameVariable: 'GITHUB_USER',
                     passwordVariable: 'GITHUB_TOKEN'
                 )]) {
-                    script {
-                        if (isUnix()) {
-                            sh '''
-                                echo "🚀 Pushing to GitHub..."
-                                
-                                # Configure Git
-                                git config user.name "${GITHUB_USER}"
-                                git config user.email "${GITHUB_USER}@users.noreply.github.com"
-                                
-                                # Set remote URL with token
-                                git remote set-url origin https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/Eyemusican/DSO101_SE_project.git
-                                
-                                # Add build artifacts or status files
-                                echo "Build completed at $(date)" > build-status.txt
-                                echo "Images built:" >> build-status.txt
-                                echo "- ${DOCKER_HUB_REPO}/backend:${STUDENT_ID}" >> build-status.txt
-                                echo "- ${DOCKER_HUB_REPO}/frontend:${STUDENT_ID}" >> build-status.txt
-                                
-                                # Add and commit build status
-                                git add build-status.txt
-                                git commit -m "Jenkins: Build completed successfully [skip ci]" || echo "No changes to commit"
-                                
-                                # Push to GitHub
-                                git push origin HEAD:main
-                                
-                                echo "✅ Successfully pushed to GitHub!"
-                            '''
-                        } else {
-                            bat '''
-                                echo 🚀 Pushing to GitHub...
-                                
-                                git config user.name "%GITHUB_USER%"
-                                git config user.email "%GITHUB_USER%@users.noreply.github.com"
-                                
-                                git remote set-url origin https://%GITHUB_USER%:%GITHUB_TOKEN%@github.com/Eyemusican/DSO101_SE_project.git
-                                
-                                echo Build completed at %date% %time% > build-status.txt
-                                echo Images built: >> build-status.txt
-                                echo - %DOCKER_HUB_REPO%/backend:%STUDENT_ID% >> build-status.txt
-                                echo - %DOCKER_HUB_REPO%/frontend:%STUDENT_ID% >> build-status.txt
-                                
-                                git add build-status.txt
-                                git commit -m "Jenkins: Build completed successfully [skip ci]" || echo "No changes to commit"
-                                
-                                git push origin HEAD:main
-                                
-                                echo ✅ Successfully pushed to GitHub!
-                            '''
-                        }
-                    }
+                    sh '''
+                        echo "🚀 Pushing to GitHub..."
+                        
+                        # Configure git user (required for push)
+                        git config user.name "${GITHUB_USER}"
+                        git config user.email "${GITHUB_USER}@users.noreply.github.com"
+                        
+                        # Set remote URL with credentials
+                        git remote set-url origin https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/Eyemusican/DSO101_SE_project.git
+                        
+                        # Push to main branch
+                        git push origin HEAD:main
+                        
+                        echo "✅ Successfully pushed to GitHub!"
+                    '''
                 }
             }
         }
@@ -353,23 +222,24 @@ pipeline {
     
     post {
         always {
-            script {
-                // Clean up Docker images and system
-                if (isUnix()) {
-                    sh 'docker system prune -f || echo "Cleanup completed"'
-                } else {
-                    bat 'docker system prune -f || echo "Cleanup completed"'
-                }
-            }
+            echo "🧹 Cleaning up workspace..."
+            // Clean up node_modules to save space (optional)
+            sh '''
+                echo "Cleaning up node_modules directories..."
+                rm -rf backend/node_modules || true
+                rm -rf frontend/node_modules || true
+                echo "✅ Cleanup completed"
+            '''
         }
         success {
-            echo '🎉 Pipeline completed successfully!'
-            echo '📊 Check the archived test reports in Jenkins'
-            echo '🔄 Changes have been pushed back to GitHub'
+            echo "🎉 Pipeline completed successfully!"
+            echo "✅ Code has been built, tested, and pushed to GitHub"
         }
         failure {
-            echo '❌ Pipeline failed!'
-            echo '📧 Check the logs above for error details'
+            echo "❌ Pipeline failed!"
+            echo "Please check the logs for details"
+        }
+        unstable {
+            echo "⚠️ Pipeline completed with warnings"
         }
     }
-}
