@@ -16,7 +16,7 @@ records :
 
 ![alt text](image-2.png)
 
-hi tenzin
+hi tenzin i m
 ![alt text](image-6.png)
 
 ![alt text](image-3.png)
