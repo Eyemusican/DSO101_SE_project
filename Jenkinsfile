@@ -41,10 +41,10 @@ pipeline {
                 dir('frontend') {
                     script {
                         if (isUnix()) {
-                            sh 'npm install'
+                            sh 'npm install --legacy-peer-deps'
                             sh 'npm run build'
                         } else {
-                            bat 'npm install'
+                            bat 'npm install --legacy-peer-deps'
                             bat 'npm run build'
                         }
                     }
