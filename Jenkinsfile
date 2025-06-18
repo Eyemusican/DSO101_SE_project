@@ -118,13 +118,18 @@ pipeline {
 import '@testing-library/jest-dom';
 
 // Mock console methods to reduce noise in tests
+const originalConsole = global.console;
 global.console = {
-    ...console,
     log: jest.fn(),
     debug: jest.fn(),
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
+    // Keep other console methods
+    trace: originalConsole.trace,
+    table: originalConsole.table,
+    group: originalConsole.group,
+    groupEnd: originalConsole.groupEnd
 };
 '''
                             
