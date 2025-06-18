@@ -29,7 +29,7 @@ pipeline {
             steps {
                 script {
                     echo "🔧 Setting up Node.js environment..."
-                    // Install Node.js if not available (adjust based on your Jenkins setup)
+                    // Check Node.js and npm versions
                     sh '''
                         node --version || echo "Node.js not found"
                         npm --version || echo "npm not found"
@@ -137,13 +137,10 @@ pipeline {
                         echo "✅ Backend tests completed successfully"
                     '''
                     
-                    // Publish test results if available
-                    publishTestResults testResultsPattern: 'coverage/lcov-report/index.html'
-                    
                     // Archive test coverage reports
                     archiveArtifacts artifacts: 'coverage/**/*', allowEmptyArchive: true
                     
-                    // Archive test results
+                    // Publish HTML coverage report
                     publishHTML([
                         allowMissing: false,
                         alwaysLinkToLastBuild: true,
@@ -243,3 +240,4 @@ pipeline {
             echo "⚠️ Pipeline completed with warnings"
         }
     }
+}
