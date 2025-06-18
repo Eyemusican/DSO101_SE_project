@@ -1,6 +1,5 @@
-# Development environment with testing support
-
-FROM node:18-alpine
+# Production environment
+FROM node:12-alpine
 
 # Set app directory
 WORKDIR /app
@@ -8,42 +7,27 @@ WORKDIR /app
 # Environment variables
 ENV NODE_OPTIONS=--max_old_space_size=4096
 
-# Install dependencies
+# Copy package files
 COPY package.json ./
-COPY sync-package-lock ./
-RUN npm install
 
-# Install Jest and testing dependencies for BMI calculator tests
-RUN npm install --save-dev jest @types/jest ts-jest supertest @types/supertest
+# Install dependencies (this will work with or without package-lock.json)
+RUN npm install --production --no-optional
 
-# Build configuration
+# Copy build configuration files
 COPY nodemon.json ./
 COPY tsconfig.json ./
 COPY src ./src
 
-# Create jest.config.js for testing
-RUN echo 'module.exports = { \
-  preset: "ts-jest", \
-  testEnvironment: "node", \
-  roots: ["<rootDir>/src"], \
-  testMatch: ["**/__tests__/**/*.test.ts"], \
-  coverageDirectory: "coverage", \
-  collectCoverageFrom: [ \
-    "src/**/*.ts", \
-    "!src/**/*.d.ts" \
-  ] \
-};' > jest.config.js
+# Build the application
+RUN npm run build
 
-# Migrations and database setup
-COPY database ./
+# Copy database and migration files
+COPY database ./database
 
-# Create directories for BMI data storage
-RUN mkdir -p /app/bmi-data /app/coverage
+# Copy and setup entrypoint script
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
-# Remove entrypoint for now - not needed for basic functionality
-# COPY docker-entrypoint.sh /docker-entrypoint.sh
-# RUN chmod +x /docker-entrypoint.sh
-# ENTRYPOINT [ "/docker-entrypoint.sh" ]
-
-# Default command (can be overridden in docker-compose)
+# Set entrypoint and default command
+ENTRYPOINT [ "/docker-entrypoint.sh" ]
 CMD [ "npm", "run", "serve" ]
