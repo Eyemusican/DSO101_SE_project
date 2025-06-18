@@ -11,8 +11,13 @@ pipeline {
         stage('Check Commit Message') {
             steps {
                 script {
-                    // Check if commit message contains "@push"
-                    def commitMsg = sh(returnStdout: true, script: 'git log -1 --pretty=%B').trim()
+                    // Check if commit message contains "@push" - Cross-platform version
+                    def commitMsg
+                    if (isUnix()) {
+                        commitMsg = sh(returnStdout: true, script: 'git log -1 --pretty=%B').trim()
+                    } else {
+                        commitMsg = bat(returnStdout: true, script: 'git log -1 --pretty=%%B').trim()
+                    }
                     echo "Commit message: ${commitMsg}"
                     if (commitMsg.contains("@push")) {
                         echo "✅ Triggering GitHub push automation..."
