@@ -3,7 +3,7 @@ pipeline {
     
     environment {
         // Store GitHub credentials in Jenkins Secrets
-        GITHUB_CREDS = credentials('github-pat')
+        GITHUB_CREDS = credentials('github-credentials')
         REPO_URL = 'https://github.com/Eyemusican/DSO101_SE_project.git'
     }
     
@@ -118,7 +118,7 @@ pipeline {
             }
             steps {
                 withCredentials([usernamePassword(
-                    credentialsId: 'github-pat',
+                    credentialsId: 'github-credentials',
                     usernameVariable: 'GITHUB_USER',
                     passwordVariable: 'GITHUB_TOKEN'
                 )]) {
