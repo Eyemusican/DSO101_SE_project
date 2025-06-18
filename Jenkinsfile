@@ -1,12 +1,12 @@
 // Pipeline Name: 02230307_app_pipeline
-// Windows-Compatible Version for DSO101_SE_project
+// Windows-Compatible Version
 pipeline {
     agent any
     
     environment {
         // Store GitHub credentials in Jenkins Secrets
-        GITHUB_CREDS = credentials('github-pat')
-        // Fix Node.js 17+ OpenSSL issue
+        GITHUB_CREDS = credentials('github-credentials')
+        // Fix Node.js 17+ OpenSSL issue for Windows
         NODE_OPTIONS = '--openssl-legacy-provider'
     }
     
@@ -14,28 +14,32 @@ pipeline {
         stage('Check Commit Message') {
             steps {
                 script {
-                    // Check if commit message contains "@push"
+                    // Windows-compatible git log command
                     def commitMsg = bat(returnStdout: true, script: '@echo off && git log -1 --pretty=%%B').trim()
+                    echo "Commit message: ${commitMsg}"
                     if (commitMsg.contains("@push")) {
                         echo "✅ Triggering GitHub push..."
                     } else {
-                        echo "ℹ️ Commit does not contain '@push', continuing build only..."
+                        error("❌ Commit message does not contain '@push'. Aborting.")
                     }
                 }
             }
         }
         
-        stage('Setup') {
+        stage('Setup Environment') {
             steps {
                 echo "🔧 Setting up environment..."
                 bat '''
                     @echo off
+                    echo Checking environment...
                     echo Node.js version:
                     node --version
                     echo NPM version:
                     npm --version
                     echo Git version:
                     git --version
+                    echo Current directory:
+                    cd
                 '''
             }
         }
@@ -44,25 +48,37 @@ pipeline {
             parallel {
                 stage('Frontend Dependencies') {
                     steps {
-                        dir('frontend') {
-                            echo "📦 Installing frontend dependencies with legacy peer deps..."
-                            bat '''
-                                @echo off
-                                echo Installing frontend dependencies with --legacy-peer-deps --force...
-                                npm install --legacy-peer-deps --force --no-audit || echo "Frontend install completed with warnings"
-                            '''
+                        script {
+                            if (fileExists('frontend/package.json')) {
+                                dir('frontend') {
+                                    echo "📦 Installing frontend dependencies..."
+                                    bat '''
+                                        @echo off
+                                        echo Installing frontend dependencies...
+                                        npm install --no-audit --legacy-peer-deps
+                                    '''
+                                }
+                            } else {
+                                echo "⚠️ No frontend/package.json found, skipping frontend dependencies"
+                            }
                         }
                     }
                 }
                 stage('Backend Dependencies') {
                     steps {
-                        dir('backend') {
-                            echo "📦 Installing backend dependencies..."
-                            bat '''
-                                @echo off
-                                echo Installing backend dependencies...
-                                npm install --no-audit || echo "Backend install completed with warnings"
-                            '''
+                        script {
+                            if (fileExists('backend/package.json')) {
+                                dir('backend') {
+                                    echo "📦 Installing backend dependencies..."
+                                    bat '''
+                                        @echo off
+                                        echo Installing backend dependencies...
+                                        npm install --no-audit
+                                    '''
+                                }
+                            } else {
+                                echo "⚠️ No backend/package.json found, skipping backend dependencies"
+                            }
                         }
                     }
                 }
@@ -73,25 +89,43 @@ pipeline {
             parallel {
                 stage('Build Frontend') {
                     steps {
-                        dir('frontend') {
-                            echo "🏗️ Building frontend..."
-                            bat '''
-                                @echo off
-                                echo Building frontend with NODE_OPTIONS=--openssl-legacy-provider
-                                npm run build || echo "Frontend build completed with warnings"
-                            '''
+                        script {
+                            if (fileExists('frontend/package.json')) {
+                                dir('frontend') {
+                                    echo "🏗️ Building frontend..."
+                                    bat '''
+                                        @echo off
+                                        set NODE_OPTIONS=--openssl-legacy-provider
+                                        echo Building frontend...
+                                        npm run build
+                                    '''
+                                }
+                            } else {
+                                echo "⚠️ No frontend found, skipping frontend build"
+                            }
                         }
                     }
                 }
                 stage('Build Backend') {
                     steps {
-                        dir('backend') {
-                            echo "🏗️ Building backend..."
-                            bat '''
-                                @echo off
-                                echo Running backend build...
-                                npm run build || echo "Backend build completed with warnings"
-                            '''
+                        script {
+                            if (fileExists('backend/package.json')) {
+                                dir('backend') {
+                                    echo "🏗️ Building backend..."
+                                    bat '''
+                                        @echo off
+                                        echo Checking for backend build script...
+                                        findstr /i "build" package.json >nul && (
+                                            echo Running backend build...
+                                            npm run build
+                                        ) || (
+                                            echo No build script found, skipping backend build
+                                        )
+                                    '''
+                                }
+                            } else {
+                                echo "⚠️ No backend found, skipping backend build"
+                            }
                         }
                     }
                 }
@@ -102,25 +136,48 @@ pipeline {
             parallel {
                 stage('Frontend Tests') {
                     steps {
-                        dir('frontend') {
-                            echo "🧪 Running frontend tests..."
-                            bat '''
-                                @echo off
-                                echo Running frontend linting...
-                                npm run lint || echo "Frontend linting completed with warnings"
-                            '''
+                        script {
+                            if (fileExists('frontend/package.json')) {
+                                dir('frontend') {
+                                    echo "🧪 Running frontend tests..."
+                                    bat '''
+                                        @echo off
+                                        set NODE_OPTIONS=--openssl-legacy-provider
+                                        echo Checking for frontend test script...
+                                        findstr /i "test" package.json >nul && (
+                                            echo Running frontend tests...
+                                            npm test -- --watchAll=false --coverage || echo "Tests completed with issues"
+                                        ) || (
+                                            echo No test script found, skipping frontend tests
+                                        )
+                                    '''
+                                }
+                            } else {
+                                echo "⚠️ No frontend found, skipping frontend tests"
+                            }
                         }
                     }
                 }
                 stage('Backend Tests') {
                     steps {
-                        dir('backend') {
-                            echo "🧪 Running backend tests..."
-                            bat '''
-                                @echo off
-                                echo Running backend tests...
-                                npm run test || echo "Backend tests completed with warnings"
-                            '''
+                        script {
+                            if (fileExists('backend/package.json')) {
+                                dir('backend') {
+                                    echo "🧪 Running backend tests..."
+                                    bat '''
+                                        @echo off
+                                        echo Checking for backend test script...
+                                        findstr /i "test" package.json >nul && (
+                                            echo Running backend tests...
+                                            npm test || echo "Tests completed with issues"
+                                        ) || (
+                                            echo No test script found, skipping backend tests
+                                        )
+                                    '''
+                                }
+                            } else {
+                                echo "⚠️ No backend found, skipping backend tests"
+                            }
                         }
                     }
                 }
@@ -128,41 +185,30 @@ pipeline {
         }
         
         stage('Push to GitHub') {
-            when {
-                expression {
-                    def commitMessage = bat(
-                        script: 'git log -1 --pretty=format:"%%s"',
-                        returnStdout: true
-                    ).trim()
-                    return commitMessage.contains('@push')
-                }
-            }
             steps {
                 echo "🚀 Pushing to GitHub..."
                 withCredentials([usernamePassword(
-                    credentialsId: 'github-pat',
+                    credentialsId: 'github-credentials',
                     usernameVariable: 'GITHUB_USER',
                     passwordVariable: 'GITHUB_TOKEN'
                 )]) {
                     bat '''
                         @echo off
-                        echo Configuring Git...
-                        git config user.name "Jenkins CI"
-                        git config user.email "jenkins@yourdomain.com"
-                        
-                        echo Adding all changes...
-                        git add .
-                        
-                        echo Committing changes...
-                        git commit -m "Jenkins CI: Build and deploy [skip ci]" || echo "No changes to commit"
+                        echo Setting up git configuration...
+                        git config user.name "%GITHUB_USER%"
+                        git config user.email "%GITHUB_USER%@users.noreply.github.com"
                         
                         echo Setting up git remote...
                         git remote set-url origin https://%GITHUB_USER%:%GITHUB_TOKEN%@github.com/Eyemusican/DSO101_SE_project.git
                         
-                        echo Pushing to GitHub...
-                        git push origin HEAD:main || echo "Push completed with warnings"
+                        echo Adding all changes...
+                        git add .
                         
-                        echo GitHub push completed!
+                        echo Checking git status...
+                        git status
+                        
+                        echo Pushing to GitHub...
+                        git push origin HEAD:main
                     '''
                 }
             }
@@ -172,21 +218,56 @@ pipeline {
     post {
         always {
             echo "🏁 Pipeline execution completed!"
+            
+            // Archive test results if they exist
+            script {
+                if (fileExists('frontend/coverage')) {
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: false,
+                        keepAll: true,
+                        reportDir: 'frontend/coverage/lcov-report',
+                        reportFiles: 'index.html',
+                        reportName: 'Frontend Coverage Report'
+                    ])
+                }
+                
+                if (fileExists('backend/coverage')) {
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: false,
+                        keepAll: true,
+                        reportDir: 'backend/coverage/lcov-report',
+                        reportFiles: 'index.html',
+                        reportName: 'Backend Coverage Report'
+                    ])
+                }
+            }
+            
             bat '''
                 @echo off
-                echo Pipeline Summary:
-                echo ================
-                echo Frontend build status: Check above logs
-                echo Backend build status: Check above logs  
-                echo Test results: Check above logs
-                echo GitHub push status: Check above logs
+                echo.
+                echo ================================
+                echo       PIPELINE SUMMARY
+                echo ================================
+                echo Frontend: Check logs above
+                echo Backend: Check logs above
+                echo Tests: Check logs above
+                echo GitHub Push: Check logs above
+                echo ================================
             '''
         }
         success {
             echo "✅ Pipeline executed successfully!"
+            echo "🎉 Code has been pushed to GitHub!"
         }
         failure {
             echo "❌ Pipeline failed. Check the logs above for details."
+            echo "💡 Common issues:"
+            echo "   - Missing @push in commit message"
+            echo "   - Node.js/NPM not installed"
+            echo "   - GitHub credentials not configured"
+            echo "   - Network connectivity issues"
         }
     }
 }
