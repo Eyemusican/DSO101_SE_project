@@ -1,90 +1,61 @@
-// Simple Working Windows Jenkins Pipeline
 pipeline {
     agent any
     
     environment {
-        GITHUB_CREDS = credentials('github-pat')
-        NODE_OPTIONS = '--max-old-space-size=4096'
+        // Store GitHub credentials in Jenkins Secrets
+        GITHUB_CREDS = credentials('github-credentials')
+        REPO_URL = 'https://github.com/Eyemusican/DSO101_SE_project.git'
     }
     
     stages {
         stage('Check Commit Message') {
             steps {
                 script {
-                    def commitMessage = bat(
-                        script: 'git log -1 --pretty=format:%%s',
-                        returnStdout: true
-                    ).trim()
-                    
-                    echo "Commit message: ${commitMessage}"
-                    
-                    if (commitMessage.contains('@push')) {
-                        echo "✅ Will push to GitHub"
-                        env.PUSH_TO_GITHUB = 'true'
+                    // Check if commit message contains "@push"
+                    def commitMsg = sh(returnStdout: true, script: 'git log -1 --pretty=%B').trim()
+                    echo "Commit message: ${commitMsg}"
+                    if (commitMsg.contains("@push")) {
+                        echo "✅ Triggering GitHub push automation..."
+                        env.SHOULD_PUSH = 'true'
                     } else {
-                        echo "⏭️ Skipping GitHub push"
-                        env.PUSH_TO_GITHUB = 'false'
+                        echo "❌ Commit message does not contain '@push'. Skipping push."
+                        env.SHOULD_PUSH = 'false'
                     }
                 }
             }
         }
         
-        stage('Setup Environment') {
+        stage('Checkout') {
             steps {
-                echo "🔧 Setting up environment..."
-                bat '''
-                    echo Node.js version:
-                    node --version
-                    echo NPM version:
-                    npm --version
-                '''
+                git branch: 'main', url: env.REPO_URL
             }
         }
         
-        stage('Clean Cache') {
+        stage('Build Frontend') {
             steps {
-                echo "🧹 Cleaning npm cache..."
-                bat 'npm cache clean --force'
-            }
-        }
-        
-        stage('Install Dependencies') {
-            steps {
-                echo "📦 Installing dependencies..."
-                script {
-                    if (fileExists('frontend/package.json')) {
-                        dir('frontend') {
-                            bat 'npm install --force --no-audit'
+                dir('frontend') {
+                    script {
+                        if (isUnix()) {
+                            sh 'npm install'
+                            sh 'npm run build'
+                        } else {
+                            bat 'npm install'
+                            bat 'npm run build'
                         }
-                        echo "✅ Frontend dependencies installed"
-                    }
-                    
-                    if (fileExists('backend/package.json')) {
-                        dir('backend') {
-                            bat 'npm install --force --no-audit'
-                        }
-                        echo "✅ Backend dependencies installed"
                     }
                 }
             }
         }
         
-        stage('Build') {
+        stage('Build Backend') {
             steps {
-                echo "🏗️ Building applications..."
-                script {
-                    if (fileExists('frontend/package.json')) {
-                        dir('frontend') {
-                            bat 'npm run build || echo "Build completed with warnings"'
+                dir('backend') {
+                    script {
+                        if (isUnix()) {
+                            sh 'npm install'
+                        } else {
+                            bat 'npm install'
                         }
-                        echo "✅ Frontend built"
-                    }
-                    
-                    if (fileExists('backend/package.json')) {
-                        dir('backend') {
-                            bat 'echo Backend build completed'
-                        }
-                        echo "✅ Backend processed"
                     }
                 }
             }
@@ -92,62 +63,95 @@ pipeline {
         
         stage('Test') {
             steps {
-                echo "🧪 Running tests..."
                 script {
-                    if (fileExists('frontend/package.json')) {
-                        dir('frontend') {
-                            bat 'npm test -- --passWithNoTests --watchAll=false || echo "Tests completed"'
+                    // Test Backend
+                    dir('backend') {
+                        if (isUnix()) {
+                            sh 'npm test'
+                        } else {
+                            bat 'npm test'
                         }
                     }
                     
-                    if (fileExists('backend/package.json')) {
-                        dir('backend') {
-                            bat 'npm test -- --passWithNoTests --forceExit || echo "Tests completed"'
+                    // Test Frontend (if tests exist)
+                    dir('frontend') {
+                        if (isUnix()) {
+                            sh 'npm test -- --watchAll=false --coverage'
+                        } else {
+                            bat 'npm test -- --watchAll=false --coverage'
                         }
                     }
                 }
-                echo "✅ Tests completed"
+            }
+            post {
+                always {
+                    // Archive test results
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'backend/coverage',
+                        reportFiles: 'index.html',
+                        reportName: 'Backend Test Coverage Report'
+                    ])
+                    
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'frontend/coverage',
+                        reportFiles: 'index.html',
+                        reportName: 'Frontend Test Coverage Report'
+                    ])
+                }
             }
         }
         
         stage('Push to GitHub') {
             when {
-                environment name: 'PUSH_TO_GITHUB', value: 'true'
+                expression { env.SHOULD_PUSH == 'true' }
             }
             steps {
-                echo "🚀 Pushing to GitHub..."
-                withCredentials([usernamePassword(credentialsId: 'github-pat', 
-                                                passwordVariable: 'GIT_PASSWORD', 
-                                                usernameVariable: 'GIT_USERNAME')]) {
-                    bat '''
-                        git config user.email "jenkins@example.com"
-                        git config user.name "Jenkins CI"
-                        git add .
-                        git commit -m "Jenkins auto-commit [skip ci]" || echo "Nothing to commit"
-                        git push https://%GIT_USERNAME%:%GIT_PASSWORD%@github.com/Eyemusican/DSO101_SE_project.git HEAD:main
-                    '''
+                withCredentials([usernamePassword(
+                    credentialsId: 'github-credentials',
+                    usernameVariable: 'GITHUB_USER',
+                    passwordVariable: 'GITHUB_TOKEN'
+                )]) {
+                    script {
+                        if (isUnix()) {
+                            sh '''
+                                git config user.name "${GITHUB_USER}"
+                                git config user.email "${GITHUB_USER}@github.com"
+                                git remote set-url origin https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/Eyemusican/DSO101_SE_project.git
+                                git add .
+                                git commit -m "Jenkins automated push - $(date)" || echo "No changes to commit"
+                                git push origin HEAD:main
+                            '''
+                        } else {
+                            bat '''
+                                git config user.name "%GITHUB_USER%"
+                                git config user.email "%GITHUB_USER%@github.com"
+                                git remote set-url origin https://%GITHUB_USER%:%GITHUB_TOKEN%@github.com/Eyemusican/DSO101_SE_project.git
+                                git add .
+                                git commit -m "Jenkins automated push - %date%" || echo "No changes to commit"
+                                git push origin HEAD:main
+                            '''
+                        }
+                    }
                 }
-                echo "✅ Pushed to GitHub"
             }
         }
     }
     
     post {
         always {
-            echo "📋 Pipeline completed!"
-            bat '''
-                echo ================================
-                echo       PIPELINE SUMMARY
-                echo ================================
-            '''
+            echo 'Pipeline completed!'
         }
-        
         success {
-            echo "🎉 SUCCESS: Pipeline completed successfully!"
+            echo '✅ Pipeline executed successfully!'
         }
-        
         failure {
-            echo "❌ FAILED: Check the logs above"
+            echo '❌ Pipeline failed!'
         }
     }
 }
